@@ -1,0 +1,72 @@
+name: "Notify Discord on Release & Prerelease"
+
+on:
+  release:
+    types: [published, prereleased]
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Extract Release Info
+        id: get_release_info
+        run: |
+          echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
+
+      - name: Determine Update Type
+        id: detect_type
+        run: |
+          tag="${{ steps.get_release_info.outputs.tag_name }}"
+          is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
+
+          # Remove 'v' prefix
+          version="${tag#v}"
+
+          # Extract semver parts
+          IFS='.-' read -ra PARTS <<< "$version"
+          major="${PARTS[0]}"
+          minor="${PARTS[1]}"
+          patch="${PARTS[2]}"
+
+          echo "Version: $version (Major=$major, Minor=$minor, Patch=$patch)"
+
+          # Default type
+          type="PATCH"
+
+          # Detect RC / prerelease
+          if [[ "$is_prerelease" == "true" || "$version" == *"rc"* ]]; then
+            type="RC"
+          else
+            if [[ "$minor" == "0" && "$patch" == "0" ]]; then
+              type="MAJOR"
+            elif [[ "$patch" == "0" ]]; then
+              type="MINOR"
+            fi
+          fi
+
+          echo "type=$type" >> $GITHUB_OUTPUT
+
+      - name: Send Discord Notification
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            ${{ steps.detect_type.outputs.type == 'PATCH' && format(
+              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW PATCH UPDATE - [Re]Structure {0}","description":"[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"PATCH"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
+            ) }}
+
+            ${{ steps.detect_type.outputs.type == 'MINOR' && format(
+              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW MINOR UPDATE - [Re]Structure {0}","description":"[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"MINOR"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
+            ) }}
+
+            ${{ steps.detect_type.outputs.type == 'MAJOR' && format(
+              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW MAJOR UPDATE - [Re]Structure {0}","description":"[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"MAJOR"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
+            ) }}
+
+            ${{ steps.detect_type.outputs.type == 'RC' && format(
+              '{"content":"<@&1368457457659019304>","embeds":[{"title":"NEW RELEASE CANDIDATE - [Re]Structure {0}","description":"[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases]({1}).","color":10381827,"author":{"name":"GregoryAM"},"footer":{"text":"RELEASE CANDIDATE"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
+            ) }}
