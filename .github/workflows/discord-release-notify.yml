@@ -21,21 +21,14 @@ jobs:
           tag="${{ steps.get_release_info.outputs.tag_name }}"
           is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
 
-          # Remove 'v' prefix
           version="${tag#v}"
-
-          # Extract semver parts
           IFS='.-' read -ra PARTS <<< "$version"
           major="${PARTS[0]}"
           minor="${PARTS[1]}"
           patch="${PARTS[2]}"
 
-          echo "Version: $version (Major=$major, Minor=$minor, Patch=$patch)"
-
-          # Default type
           type="PATCH"
 
-          # Detect RC / prerelease
           if [[ "$is_prerelease" == "true" || "$version" == *"rc"* ]]; then
             type="RC"
           else
@@ -48,25 +41,114 @@ jobs:
 
           echo "type=$type" >> $GITHUB_OUTPUT
 
-      - name: Send Discord Notification
+      # PATCH
+      - name: Send PATCH Update Notification
+        if: ${{ steps.detect_type.outputs.type == 'PATCH' }}
         uses: fjogeleit/http-request-action@v1.14.1
         with:
           url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           method: POST
           customHeaders: '{"Content-Type": "application/json"}'
           data: |
-            ${{ steps.detect_type.outputs.type == 'PATCH' && format(
-              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW PATCH UPDATE - [Re]Structure {0}","description":"[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"PATCH"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
-            ) }}
+            {
+              "content": "<@&1368448364865126491>",
+              "embeds": [
+                {
+                  "title": "NEW PATCH UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
+                  "description": "[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
+                  "color": 3323461,
+                  "author": {
+                    "name": "GregoryAM"
+                  },
+                  "footer": {
+                    "text": "PATCH"
+                  },
+                  "timestamp": "${{ github.event.release.published_at }}"
+                }
+              ],
+              "attachments": []
+            }
 
-            ${{ steps.detect_type.outputs.type == 'MINOR' && format(
-              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW MINOR UPDATE - [Re]Structure {0}","description":"[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"MINOR"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
-            ) }}
+      # MINOR
+      - name: Send MINOR Update Notification
+        if: ${{ steps.detect_type.outputs.type == 'MINOR' }}
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            {
+              "content": "<@&1368448364865126491>",
+              "embeds": [
+                {
+                  "title": "NEW MINOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
+                  "description": "[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
+                  "color": 3323461,
+                  "author": {
+                    "name": "GregoryAM"
+                  },
+                  "footer": {
+                    "text": "MINOR"
+                  },
+                  "timestamp": "${{ github.event.release.published_at }}"
+                }
+              ],
+              "attachments": []
+            }
 
-            ${{ steps.detect_type.outputs.type == 'MAJOR' && format(
-              '{"content":"<@&1368448364865126491>","embeds":[{"title":"NEW MAJOR UPDATE - [Re]Structure {0}","description":"[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases]({1}).","color":3323461,"author":{"name":"GregoryAM"},"footer":{"text":"MAJOR"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
-            ) }}
+      # MAJOR
+      - name: Send MAJOR Update Notification
+        if: ${{ steps.detect_type.outputs.type == 'MAJOR' }}
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            {
+              "content": "<@&1368448364865126491>",
+              "embeds": [
+                {
+                  "title": "NEW MAJOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
+                  "description": "[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
+                  "color": 3323461,
+                  "author": {
+                    "name": "GregoryAM"
+                  },
+                  "footer": {
+                    "text": "MAJOR"
+                  },
+                  "timestamp": "${{ github.event.release.published_at }}"
+                }
+              ],
+              "attachments": []
+            }
 
-            ${{ steps.detect_type.outputs.type == 'RC' && format(
-              '{"content":"<@&1368457457659019304>","embeds":[{"title":"NEW RELEASE CANDIDATE - [Re]Structure {0}","description":"[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases]({1}).","color":10381827,"author":{"name":"GregoryAM"},"footer":{"text":"RELEASE CANDIDATE"},"timestamp":"{2}"}],"attachments":[]}', github.event.release.tag_name, github.event.release.html_url, github.event.release.published_at
-            ) }}
+      # RC (Release Candidate)
+      - name: Send RC Update Notification
+        if: ${{ steps.detect_type.outputs.type == 'RC' }}
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            {
+              "content": "<@&1368457457659019304>",
+              "embeds": [
+                {
+                  "title": "NEW RELEASE CANDIDATE - [Re]Structure ${{ github.event.release.tag_name }}",
+                  "description": "[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases](${{ github.event.release.html_url }}).",
+                  "color": 10381827,
+                  "author": {
+                    "name": "GregoryAM"
+                  },
+                  "footer": {
+                    "text": "RELEASE CANDIDATE"
+                  },
+                  "timestamp": "${{ github.event.release.published_at }}"
+                }
+              ],
+              "attachments": []
+            }
