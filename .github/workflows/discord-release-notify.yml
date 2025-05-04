@@ -59,7 +59,7 @@ jobs:
                   "title": "NEW PATCH UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": { "name": "GregoryAM" },
+                  "author": { "name": "Gregory-AM" },
                   "footer": { "text": "PATCH" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
@@ -83,7 +83,7 @@ jobs:
                   "title": "NEW MINOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": { "name": "GregoryAM" },
+                  "author": { "name": "Gregory-AM" },
                   "footer": { "text": "MINOR" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
@@ -107,7 +107,7 @@ jobs:
                   "title": "NEW MAJOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": { "name": "GregoryAM" },
+                  "author": { "name": "Gregory-AM" },
                   "footer": { "text": "MAJOR" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
@@ -131,7 +131,7 @@ jobs:
                   "title": "NEW RELEASE CANDIDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 10381827,
-                  "author": { "name": "GregoryAM" },
+                  "author": { "name": "Gregory-AM" },
                   "footer": { "text": "RELEASE CANDIDATE" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
@@ -155,7 +155,7 @@ jobs:
                   "title": "NEW PRE-RELEASE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a new pre-release (e.g., beta/alpha).\n\nYou can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 15844367,
-                  "author": { "name": "GregoryAM" },
+                  "author": { "name": "Gregory-AM" },
                   "footer": { "text": "PRE-RELEASE" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
