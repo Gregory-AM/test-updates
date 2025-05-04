@@ -29,8 +29,10 @@ jobs:
 
           type="PATCH"
 
-          if [[ "$is_prerelease" == "true" || "$version" == *"rc"* ]]; then
+          if [[ "$version" == *"rc"* ]]; then
             type="RC"
+          elif [[ "$is_prerelease" == "true" ]]; then
+            type="PRERELEASE"
           else
             if [[ "$minor" == "0" && "$patch" == "0" ]]; then
               type="MAJOR"
@@ -57,12 +59,8 @@ jobs:
                   "title": "NEW PATCH UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": {
-                    "name": "GregoryAM"
-                  },
-                  "footer": {
-                    "text": "PATCH"
-                  },
+                  "author": { "name": "GregoryAM" },
+                  "footer": { "text": "PATCH" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
               ],
@@ -85,12 +83,8 @@ jobs:
                   "title": "NEW MINOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": {
-                    "name": "GregoryAM"
-                  },
-                  "footer": {
-                    "text": "MINOR"
-                  },
+                  "author": { "name": "GregoryAM" },
+                  "footer": { "text": "MINOR" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
               ],
@@ -113,12 +107,8 @@ jobs:
                   "title": "NEW MAJOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 3323461,
-                  "author": {
-                    "name": "GregoryAM"
-                  },
-                  "footer": {
-                    "text": "MAJOR"
-                  },
+                  "author": { "name": "GregoryAM" },
+                  "footer": { "text": "MAJOR" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
               ],
@@ -141,12 +131,32 @@ jobs:
                   "title": "NEW RELEASE CANDIDATE - [Re]Structure ${{ github.event.release.tag_name }}",
                   "description": "[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases](${{ github.event.release.html_url }}).",
                   "color": 10381827,
-                  "author": {
-                    "name": "GregoryAM"
-                  },
-                  "footer": {
-                    "text": "RELEASE CANDIDATE"
-                  },
+                  "author": { "name": "GregoryAM" },
+                  "footer": { "text": "RELEASE CANDIDATE" },
+                  "timestamp": "${{ github.event.release.published_at }}"
+                }
+              ],
+              "attachments": []
+            }
+
+      # PRE-RELEASE (Beta/Alpha)
+      - name: Send PRE-RELEASE Notification
+        if: ${{ steps.detect_type.outputs.type == 'PRERELEASE' }}
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            {
+              "content": "<@&1368457457659019304>",
+              "embeds": [
+                {
+                  "title": "NEW PRE-RELEASE - [Re]Structure ${{ github.event.release.tag_name }}",
+                  "description": "[Re]Structure has a new pre-release (e.g., beta/alpha).\n\nYou can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
+                  "color": 15844367,
+                  "author": { "name": "GregoryAM" },
+                  "footer": { "text": "PRE-RELEASE" },
                   "timestamp": "${{ github.event.release.published_at }}"
                 }
               ],
