@@ -42,13 +42,19 @@ jobs:
             COLOR=7308441
             DESCRIPTION="This is the initial release for the [Re]Structure plugin."
             FOOTER="Released"
-            BUG_FIELD=""
+            BUG_FIELD='{
+              "name": "BUG REPORTING:",
+              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            }'
           elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
             VERSION_TYPE="RELEASE CANDIDATE - $RELEASE_NAME"
             COLOR=16760124
-            DESCRIPTION="**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            DESCRIPTION="**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release."
             FOOTER="Release Candidate"
-            BUG_FIELD=""
+            BUG_FIELD='{
+              "name": "BUG REPORTING:",
+              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            }'
           elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
             VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
             COLOR=16760124
@@ -59,7 +65,7 @@ jobs:
             # Stable update (Major, Minor, Patch)
             VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
             COLOR=7929683
-            DESCRIPTION="## Patch Update\n\nThis is the latest stable release of **[Re]Structure**."
+            DESCRIPTION="## Patch Update"
             FOOTER="Released"
             BUG_FIELD='{
               "name": "BUG REPORTING:",
@@ -70,10 +76,10 @@ jobs:
             if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
               if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
                 VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION="## Major update\n\nThis is the latest stable release of **[Re]Structure**."
+                DESCRIPTION="## Major update"
               else
                 VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION="## Minor update\n\nLatest stable release."
+                DESCRIPTION="## Minor update"
               fi
             fi
           fi
