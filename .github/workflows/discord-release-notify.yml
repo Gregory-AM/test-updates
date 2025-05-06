@@ -27,7 +27,7 @@ jobs:
           IS_PRERELEASE: ${{ env.IS_PRERELEASE }}
         run: |
           # Clean release notes
-          RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
+          RELEASE_NOTES=$(echo "$RELEASE_BODY" | sed ':a;N;$!ba;s/\r//g')
 
           send_payload() {
             curl -X POST "$DISCORD_WEBHOOK_URL" \
