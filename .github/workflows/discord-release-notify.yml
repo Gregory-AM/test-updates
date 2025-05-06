@@ -8,6 +8,8 @@ jobs:
   notify-discord:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+
       - name: Extract Release Info
         id: get_release_info
         run: |
@@ -22,11 +24,9 @@ jobs:
           CLEAN_BODY=$(echo "$BODY" | jq -Rs)
           echo "clean_body=$CLEAN_BODY" >> $GITHUB_OUTPUT
 
-      - name: Determine Update Type
-        id: detect_type
-        run: |
-          tag="${{ steps.get_release_info.outputs.tag_name }}"
-          is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
+          # Determine release type
+          tag="${{ github.event.release.tag_name }}"
+          is_prerelease="${{ github.event.release.prerelease }}"
           version="${tag#v}"
 
           # Parse version components
@@ -35,222 +35,235 @@ jobs:
           minor="${PARTS[1]}"
           patch="${PARTS[2]}"
 
-          type="PATCH"
+          TYPE="PATCH"
 
           if [[ "$tag" == "v3.0.0" ]]; then
-            type="INITIAL"
-          elif [[ "$is_prerelease" == "true" || "$version" == *"rc"* || "$version" == *"beta"* ]]; then
-            type="PRERELEASE"
-          else
-            if [[ "$minor" == "0" && "$patch" == "0" ]]; then
-              type="MAJOR"
-            elif [[ "$patch" == "0" ]]; then
-              type="MINOR"
-            fi
+            TYPE="INITIAL"
+          elif [[ "$is_prerelease" == "true" ]]; then
+            TYPE="PRERELEASE"
+          elif [[ "$tag" == *"rc"* ]]; then
+            TYPE="RC"
+          elif [[ "$minor" == "0" && "$patch" == "0" ]]; then
+            TYPE="MAJOR"
+          elif [[ "$patch" == "0" ]]; then
+            TYPE="MINOR"
           fi
 
-          echo "type=$type" >> $GITHUB_OUTPUT
+          echo "release_type=$TYPE" >> $GITHUB_OUTPUT
 
-      - name: Send Initial Release Notification
-        if: steps.detect_type.outputs.type == 'INITIAL'
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "color": 7308441,
-                  "title": "🚀 INITIAL RELEASE - [Re]Structure v3.0.0",
-                  "description": "This is the initial release for the [Re]Structure plugin.",
-                  "footer": {
-                    "text": "Released",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "fields": [
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+      # Create notification JSON based on release type
+      - name: Create Notification JSON
+        id: create_json
+        run: |
+          RELEASE_TYPE="${{ steps.get_release_info.outputs.release_type }}"
+          RELEASE_NAME="${{ steps.get_release_info.outputs.release_name }}"
+          RELEASE_URL="${{ steps.get_release_info.outputs.release_url }}"
+          PUBLISHED_AT="${{ steps.get_release_info.outputs.published_at }}"
+          RELEASE_NOTES=${{ steps.get_release_info.outputs.clean_body }}
 
-      - name: Send Pre-release Notification
-        if: steps.detect_type.outputs.type == 'PRERELEASE'
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "title": "🧪 PRE-RELEASE - ${{ steps.get_release_info.outputs.release_name }}",
-                  "description": "This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "color": 16760124,
-                  "footer": {
-                    "text": "Pre-release",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+          # Create a temporary file for the JSON
+          JSON_FILE=$(mktemp)
 
-      - name: Send Release Candidate Notification
-        if: contains(steps.get_release_info.outputs.tag_name, 'rc')
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "title": "🔍 RELEASE CANDIDATE - ${{ steps.get_release_info.outputs.release_name }}",
-                  "description": "**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "color": 16760124,
-                  "footer": {
-                    "text": "Release Candidate",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
-
-      - name: Send Major Update Notification
-        if: steps.detect_type.outputs.type == 'MAJOR'
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "title": "🎉 MAJOR UPDATE - ${{ steps.get_release_info.outputs.release_name }}",
-                  "description": "## Major update\n\nThis is the latest stable release of **[Re]Structure**.",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "color": 7929683,
-                  "footer": {
-                    "text": "Major",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    {
-                      "name": "BUG REPORTING:",
-                      "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+          case "$RELEASE_TYPE" in
+            "INITIAL")
+              # Initial release embed
+              jq -n \
+                --arg title "🚀 INITIAL RELEASE - [Re]Structure v3.0.0" \
+                --arg desc "This is the initial release for the [Re]Structure plugin." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "color": 7308441,
+                    "title": $title,
+                    "description": $desc,
+                    "footer": {
+                      "text": "Released",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
                     },
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+                    "timestamp": $time,
+                    "url": $url,
+                    "fields": [
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+            "PRERELEASE")
+              # Pre-release embed
+              jq -n \
+                --arg title "🧪 PRE-RELEASE - $RELEASE_NAME" \
+                --arg desc "This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "title": $title,
+                    "description": $desc,
+                    "url": $url,
+                    "timestamp": $time,
+                    "color": 16760124,
+                    "footer": {
+                      "text": "Pre-release",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                    },
+                    "author": {
+                      "name": "GitHub: @Gregory-AM",
+                      "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                    },
+                    "fields": [
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+            "RC")
+              # Release candidate embed
+              jq -n \
+                --arg title "🔍 RELEASE CANDIDATE - $RELEASE_NAME" \
+                --arg desc "**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "title": $title,
+                    "description": $desc,
+                    "url": $url,
+                    "timestamp": $time,
+                    "color": 16760124,
+                    "footer": {
+                      "text": "Release Candidate",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                    },
+                    "author": {
+                      "name": "GitHub: @Gregory-AM",
+                      "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                    },
+                    "fields": [
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+            "MAJOR")
+              # Major update embed
+              jq -n \
+                --arg title "🎉 MAJOR UPDATE - $RELEASE_NAME" \
+                --arg desc "## Major update\n\nThis is the latest stable release of **[Re]Structure**." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "title": $title,
+                    "description": $desc,
+                    "url": $url,
+                    "timestamp": $time,
+                    "color": 7929683,
+                    "footer": {
+                      "text": "Major",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                    },
+                    "author": {
+                      "name": "GitHub: @Gregory-AM",
+                      "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                    },
+                    "fields": [
+                      {
+                        "name": "BUG REPORTING:",
+                        "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                      },
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+            "MINOR")
+              # Minor update embed
+              jq -n \
+                --arg title "✨ MINOR UPDATE - $RELEASE_NAME" \
+                --arg desc "## Minor update\n\nLatest stable release." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "title": $title,
+                    "description": $desc,
+                    "url": $url,
+                    "timestamp": $time,
+                    "color": 7929683,
+                    "footer": {
+                      "text": "Minor",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                    },
+                    "author": {
+                      "name": "GitHub: @Gregory-AM",
+                      "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                    },
+                    "fields": [
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+            *)
+              # Patch update embed (default)
+              jq -n \
+                --arg title "🔧 PATCH UPDATE - $RELEASE_NAME" \
+                --arg desc "Patch update released." \
+                --arg url "$RELEASE_URL" \
+                --arg time "$PUBLISHED_AT" \
+                --arg notes "$RELEASE_NOTES" \
+                '{
+                  "embeds": [{
+                    "title": $title,
+                    "description": $desc,
+                    "url": $url,
+                    "timestamp": $time,
+                    "color": 3323461,
+                    "footer": {
+                      "text": "Patch",
+                      "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                    },
+                    "author": {
+                      "name": "GitHub: @Gregory-AM",
+                      "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                    },
+                    "fields": [
+                      {
+                        "name": "RELEASE NOTES:",
+                        "value": $notes
+                      }
+                    ]
+                  }]
+                }' > "$JSON_FILE"
+              ;;
+          esac
 
-      - name: Send Minor Update Notification
-        if: steps.detect_type.outputs.type == 'MINOR'
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "title": "✨ MINOR UPDATE - ${{ steps.get_release_info.outputs.release_name }}",
-                  "description": "## Minor update\n\nLatest stable release.",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "color": 7929683,
-                  "footer": {
-                    "text": "Minor",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+          echo "json_file=$JSON_FILE" >> $GITHUB_OUTPUT
 
-      - name: Send Patch Update Notification
-        if: steps.detect_type.outputs.type == 'PATCH'
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "embeds": [
-                {
-                  "title": "🔧 PATCH UPDATE - ${{ steps.get_release_info.outputs.release_name }}",
-                  "description": "Patch update released.",
-                  "url": "${{ steps.get_release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
-                  "color": 3323461,
-                  "footer": {
-                    "text": "Patch",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.get_release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+      # Send the notification to Discord
+      - name: Send to Discord
+        run: |
+          curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            --data-binary "@${{ steps.create_json.outputs.json_file }}"
