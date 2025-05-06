@@ -34,7 +34,7 @@ jobs:
           # Detect release type
           if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
             # Initial Release
-            JSON=$(cat <<EOF
+            JSON=$(cat <<'EOF'
 {
   "embeds": [
     {
@@ -50,7 +50,7 @@ jobs:
       "fields": [
         {
           "name": "RELEASE NOTES:",
-          "value": $RELEASE_NOTES
+          "value": "$RELEASE_NOTES"
         }
       ]
     }
@@ -62,7 +62,7 @@ EOF
 
           elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
             # Release Candidate
-            JSON=$(cat <<EOF
+            JSON=$(cat <<'EOF'
 {
   "embeds": [
     {
@@ -82,7 +82,7 @@ EOF
       "fields": [
         {
           "name": "RELEASE NOTES:",
-          "value": $RELEASE_NOTES
+          "value": "$RELEASE_NOTES"
         }
       ]
     }
@@ -94,7 +94,7 @@ EOF
 
           elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
             # Beta / Pre-release
-            JSON=$(cat <<EOF
+            JSON=$(cat <<'EOF'
 {
   "embeds": [
     {
@@ -114,7 +114,7 @@ EOF
       "fields": [
         {
           "name": "RELEASE NOTES:",
-          "value": $RELEASE_NOTES
+          "value": "$RELEASE_NOTES"
         }
       ]
     }
@@ -135,7 +135,7 @@ EOF
               fi
             fi
 
-            JSON=$(cat <<EOF
+            JSON=$(cat <<'EOF'
 {
   "embeds": [
     {
@@ -159,7 +159,7 @@ EOF
         },
         {
           "name": "RELEASE NOTES:",
-          "value": $RELEASE_NOTES
+          "value": "$RELEASE_NOTES"
         }
       ]
     }
