@@ -68,7 +68,7 @@ jobs:
             # Stable update (Major, Minor, Patch)
             VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
             COLOR=7929683
-            DESCRIPTION="## Patch Update"
+            DESCRIPTION=""
             FOOTER="Released"
             BUG_FIELD='{
               "name": "BUG REPORTING:",
@@ -79,10 +79,10 @@ jobs:
             if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
               if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
                 VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION="## Major update"
+                DESCRIPTION=""
               else
                 VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION="## Minor update"
+                DESCRIPTION=""
               fi
             fi
           fi
