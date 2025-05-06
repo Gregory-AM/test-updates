@@ -52,9 +52,7 @@ jobs:
             DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use. **
                         This release is for finalizing checks that the bugs and issues from the pre-release are no longer present.
                         
-                        While you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.
-                        
-                        It is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.")
+                        While you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.")
                         FOOTER="Release Candidate"
                         BUG_FIELD='{
                           "name": "BUG REPORTING:",
