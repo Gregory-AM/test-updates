@@ -1,25 +1,22 @@
-name: Discord Release Notify
+name: Discord Release Notification
 
 on:
   release:
     types: [published]
 
 jobs:
-  notify:
+  notify-discord:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send release notification to Discord
+      - name: Send release info to Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          # Extract release info
-          RELEASE_TAG="${{ github.event.release.tag_name }}"
-          RELEASE_NAME="${{ github.event.release.name }}"
-          RELEASE_BODY="${{ github.event.release.body }}"
-          RELEASE_URL="${{ github.event.release.html_url }}"
-          IS_PRERELEASE="${{ github.event.release.prerelease }}"
-
           # Clean release notes (escape newlines & quotes)
           RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
 
@@ -30,65 +27,33 @@ jobs:
               -d "$1"
           }
 
-          # Detect type
+          # Detect release type
           if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
             # Initial Release
             JSON=$(cat <<EOF
-          {
-            "embeds": [
             {
-              "color": 7308441,
-              "title": "INITIAL RELEASE - [Re]Structure v3.0.0",
-              "description": "This is the initial release for the [Re]Structure plugin.",
-              "footer": {
-                "text": "Released",
-                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-              },
-                "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
-                "url": "$RELEASE_URL",
-                "fields": [
+              "embeds": [
                 {
-                  "name": "RELEASE NOTES:",
-                  "value": $RELEASE_NOTES
+                  "color": 7308441,
+                  "title": "INITIAL RELEASE - [Re]Structure v3.0.0",
+                  "description": "This is the initial release for the [Re]Structure plugin.",
+                  "footer": {
+                    "text": "Released",
+                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                  },
+                  "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+                  "url": "$RELEASE_URL",
+                  "fields": [
+                    {
+                      "name": "RELEASE NOTES:",
+                      "value": $RELEASE_NOTES
+                    }
+                  ]
                 }
               ]
             }
-          ]
-          }
-          EOF
-          )
-            send_payload "$JSON"
-
-          elif [[ "$RELEASE_TAG" == *"beta"* ]] || [[ "$IS_PRERELEASE" == "true" ]]; then
-            # Pre-release (beta)
-            JSON=$(cat <<EOF
-            {
-              "embeds": [
-            {
-              "title": "PRE-RELEASE - $RELEASE_NAME",
-              "description": "This release is for locating bugs, issues and for testing purposes which will help with further development.\n\n**- It is recommended to NOT use this version in your main workspace. **\nYou can report bugs and issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker.",
-              "url": "$RELEASE_URL",
-              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
-              "color": 16760124,
-              "footer": {
-              "text": "Released",
-              "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-              },
-                "author": {
-                "name": "GitHub: @Gregory-AM",
-                "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-              },
-              "fields": [
-              {
-                "name": "RELEASE NOTES:",
-                "value": $RELEASE_NOTES
-              }
-            ]
-          }
-          ]
-          }
-          EOF
-          )
+            EOF
+            )
             send_payload "$JSON"
 
           elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
@@ -96,35 +61,67 @@ jobs:
             JSON=$(cat <<EOF
             {
               "embeds": [
+                {
+                  "title": "RELEASE CANDIDATE - $RELEASE_NAME",
+                  "description": "**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
+                  "url": "$RELEASE_URL",
+                  "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+                  "color": 16760124,
+                  "footer": {
+                    "text": "Released",
+                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                  },
+                  "author": {
+                    "name": "GitHub: @Gregory-AM",
+                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                  },
+                  "fields": [
+                    {
+                      "name": "RELEASE NOTES:",
+                      "value": $RELEASE_NOTES
+                    }
+                  ]
+                }
+              ]
+            }
+            EOF
+            )
+            send_payload "$JSON"
+
+          elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
+            # Beta / Pre-release
+            JSON=$(cat <<EOF
             {
-              "title": "RELEASE CANDIDATE - $RELEASE_NAME",
-              "description": "**Release candidates _can be_ used for production use. **\nThis release is for finalizing checks that the bugs and issues from the pre-release are no longer present.\n\nWhile you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.\n\nIt is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.\n\nYou can report any additional bugs and issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker.",
-              "url": "$RELEASE_URL",
-              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
-              "color": 16760124,
-              "footer": {
-                "text": "Released",
-                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-              },
-                "author": {
-                "name": "GitHub: @Gregory-AM",
-                "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-              },
-                "fields": [
-              {
-                "name": "RELEASE NOTES:",
-                "value": $RELEASE_NOTES
-              }
-            ]
-          }
-          ]
-          }
-          EOF
-          )
+              "embeds": [
+                {
+                  "title": "PRE-RELEASE - $RELEASE_NAME",
+                  "description": "This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
+                  "url": "$RELEASE_URL",
+                  "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+                  "color": 16760124,
+                  "footer": {
+                    "text": "Released",
+                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                  },
+                  "author": {
+                    "name": "GitHub: @Gregory-AM",
+                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                  },
+                  "fields": [
+                    {
+                      "name": "RELEASE NOTES:",
+                      "value": $RELEASE_NOTES
+                    }
+                  ]
+                }
+              ]
+            }
+            EOF
+            )
             send_payload "$JSON"
 
           else
-            # Stable update (major, minor, patch)
+            # Stable update (Major, Minor, Patch)
             VERSION_TYPE="PATCH UPDATE"
             if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
               if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
@@ -137,34 +134,34 @@ jobs:
             JSON=$(cat <<EOF
             {
               "embeds": [
-            {
-              "title": "$VERSION_TYPE - $RELEASE_NAME",
-              "description": "## $VERSION_TYPE\n\nThis is the latest stable release of **[Re]Structure**.",
-              "url": "$RELEASE_URL",
-              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
-              "color": 7929683,
-              "footer": {
-                "text": "Released",
-                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-              },
-                "author": {
-                  "name": "GitHub: @Gregory-AM",
-                  "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                },
-                "fields": [
                 {
-                  "name": "BUG REPORTING:",
-                  "value": "If you encounter any bugs or issues within the [Re]Structure Menu or Mod Element, you can report them [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker."
-                },
-                {
-                  "name": "RELEASE NOTES:",
-                  "value": $RELEASE_NOTES
+                  "title": "$VERSION_TYPE - $RELEASE_NAME",
+                  "description": "## $VERSION_TYPE\n\nThis is the latest stable release of **[Re]Structure**.",
+                  "url": "$RELEASE_URL",
+                  "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+                  "color": 7929683,
+                  "footer": {
+                    "text": "Released",
+                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                  },
+                  "author": {
+                    "name": "GitHub: @Gregory-AM",
+                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                  },
+                  "fields": [
+                    {
+                      "name": "BUG REPORTING:",
+                      "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                    },
+                    {
+                      "name": "RELEASE NOTES:",
+                      "value": $RELEASE_NOTES
+                    }
+                  ]
                 }
               ]
             }
-          ]
-          }
-          EOF
-          )
+            EOF
+            )
             send_payload "$JSON"
           fi
