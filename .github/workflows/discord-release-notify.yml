@@ -19,25 +19,27 @@ jobs:
           echo "published_at=${{ github.event.release.published_at }}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
 
+      - name: Clean release notes (escape newlines & quotes)
+        id: clean_body
+        run: |
+          RAW_BODY="${{ steps.get_release_info.outputs.release_body }}"
+          # Escape double quotes and newlines
+          CLEAN_BODY=$(echo "$RAW_BODY" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
+          echo "clean_body=$CLEAN_BODY" >> $GITHUB_OUTPUT
+
       - name: Determine Update Type
         id: detect_type
         run: |
           tag="${{ steps.get_release_info.outputs.tag_name }}"
           is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
 
-          # Remove 'v' prefix
           version="${tag#v}"
-
-          # Extract semver parts
           IFS='.-' read -ra PARTS <<< "$version"
           major="${PARTS[0]}"
           minor="${PARTS[1]}"
           patch="${PARTS[2]}"
 
-          # Default type
           type="PATCH"
-
-          # Detect Initial Release
           if [[ "$tag" == "v3.0.0" ]]; then
             type="INITIAL"
           elif [[ "$is_prerelease" == "true" || "$version" == *"rc"* || "$version" == *"beta"* ]]; then
@@ -61,54 +63,40 @@ jobs:
           data: |
             ${{ steps.detect_type.outputs.type == 'INITIAL' && format(
               '{"embeds":[{"title":"🚀 INITIAL RELEASE - [Re]Structure v3.0.0","description":"This is the initial release for the [Re]Structure plugin.","color":7308441,"footer":{"text":"Released"},"timestamp":"{4}","url":"{1}","fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
               steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
+              steps.clean_body.outputs.clean_body,
               steps.get_release_info.outputs.release_name,
               steps.get_release_info.outputs.published_at
             ) }}
 
             ${{ steps.detect_type.outputs.type == 'PRERELEASE' && format(
-              '{"embeds":[{"title":"🧪 PRE-RELEASE - {3}","description":"This release is for testing and bug hunting.\\n\\n**Do NOT use in main workspace!**\\n\\n[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).","url":"{1}","timestamp":"{4}","color":16760124,"footer":{"text":"Pre-release"},"fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
+              '{"embeds":[{"title":"🧪 PRE-RELEASE - {2}","description":"This release is for testing and bug hunting.\\n\\n**Do NOT use in main workspace!**\\n\\n[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).","url":"{0}","timestamp":"{3}","color":16760124,"footer":{"text":"Pre-release"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
               steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
-
-            ${{ steps.detect_type.outputs.type == 'RC' && format(
-              '{"embeds":[{"title":"🔄 RELEASE CANDIDATE - {3}","description":"Release candidate for final checks before stable release.\\n\\n[Report issues](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).","url":"{1}","timestamp":"{4}","color":10381827,"footer":{"text":"Release Candidate"},"fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
-              steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
+              steps.clean_body.outputs.clean_body,
               steps.get_release_info.outputs.release_name,
               steps.get_release_info.outputs.published_at
             ) }}
 
             ${{ steps.detect_type.outputs.type == 'MAJOR' && format(
-              '{"embeds":[{"title":"🎉 MAJOR UPDATE - {3}","description":"## Major update\\n\\nThis is the latest stable release of **[Re]Structure**.","url":"{1}","timestamp":"{4}","color":7929683,"footer":{"text":"Major"},"fields":[{"name":"BUG REPORTING:","value":"[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."},{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
+              '{"embeds":[{"title":"🎉 MAJOR UPDATE - {2}","description":"## Major update\\n\\nThis is the latest stable release of **[Re]Structure**.","url":"{0}","timestamp":"{3}","color":7929683,"footer":{"text":"Major"},"fields":[{"name":"BUG REPORTING:","value":"[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."},{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
               steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
+              steps.clean_body.outputs.clean_body,
               steps.get_release_info.outputs.release_name,
               steps.get_release_info.outputs.published_at
             ) }}
 
             ${{ steps.detect_type.outputs.type == 'MINOR' && format(
-              '{"embeds":[{"title":"✨ MINOR UPDATE - {3}","description":"## Minor update\\n\\nLatest stable release.","url":"{1}","timestamp":"{4}","color":7929683,"footer":{"text":"Minor"},"fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
+              '{"embeds":[{"title":"✨ MINOR UPDATE - {2}","description":"## Minor update\\n\\nLatest stable release.","url":"{0}","timestamp":"{3}","color":7929683,"footer":{"text":"Minor"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
               steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
+              steps.clean_body.outputs.clean_body,
               steps.get_release_info.outputs.release_name,
               steps.get_release_info.outputs.published_at
             ) }}
 
             ${{ steps.detect_type.outputs.type == 'PATCH' && format(
-              '{"embeds":[{"title":"🔧 PATCH UPDATE - {3}","description":"Patch update released.","url":"{1}","timestamp":"{4}","color":3323461,"footer":{"text":"Patch"},"fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.tag_name,
+              '{"embeds":[{"title":"🔧 PATCH UPDATE - {2}","description":"Patch update released.","url":"{0}","timestamp":"{3}","color":3323461,"footer":{"text":"Patch"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
               steps.get_release_info.outputs.release_url,
-              steps.get_release_info.outputs.release_body,
+              steps.clean_body.outputs.clean_body,
               steps.get_release_info.outputs.release_name,
               steps.get_release_info.outputs.published_at
             ) }}
