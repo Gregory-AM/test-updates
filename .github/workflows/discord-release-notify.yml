@@ -49,11 +49,12 @@ jobs:
           elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
             VERSION_TYPE="RELEASE CANDIDATE - $RELEASE_NAME"
             COLOR=16760124
-            DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use.**
-
-            This release is for final checks before stable release.
-
-            You can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).")
+            DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use. **
+                        This release is for finalizing checks that the bugs and issues from the pre-release are no longer present.
+                        
+                        While you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.
+                        
+                        It is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.")
                         FOOTER="Release Candidate"
                         BUG_FIELD='{
                           "name": "BUG REPORTING:",
@@ -74,12 +75,9 @@ jobs:
                         # Stable update (Major, Minor, Patch)
                         VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
                         COLOR=7929683
-                        DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use. **
-                        This release is for finalizing checks that the bugs and issues from the pre-release are no longer present.
-                        
-                        While you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.
-                        
-                        It is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.")
+                        DESCRIPTION=$(jq -Rs <<< "This is the latest stable release of **[Re]Structure**.
+                            
+                            You can download this release now from the [Re]Structure Menu or from GitHub.")
                         FOOTER="Released"
                         BUG_FIELD='{
                           "name": "BUG REPORTING:",
