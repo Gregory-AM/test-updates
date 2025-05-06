@@ -62,11 +62,9 @@ jobs:
                       elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
                         VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
                         COLOR=16760124
-                        DESCRIPTION=$(jq -Rs <<< "This release is for testing and bug hunting.
-
-            **Do NOT use in main workspace!**
-
-            Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).")
+                        DESCRIPTION=$(jq -Rs <<< ""This release is for locating bugs, issues and for testing purposes which will help with further development.
+                        
+                        **- It is recommended to NOT use this version in your main workspace. **")
                         FOOTER="Pre-release"
                         BUG_FIELD='{
                           "name": "BUG REPORTING:",
@@ -76,9 +74,12 @@ jobs:
                         # Stable update (Major, Minor, Patch)
                         VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
                         COLOR=7929683
-                        DESCRIPTION=$(jq -Rs <<< "## Patch Update
-
-            This is the latest stable release of **[Re]Structure**.")
+                        DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use. **
+                        This release is for finalizing checks that the bugs and issues from the pre-release are no longer present.
+                        
+                        While you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.
+                        
+                        It is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.")
                         FOOTER="Released"
                         BUG_FIELD='{
                           "name": "BUG REPORTING:",
@@ -89,14 +90,14 @@ jobs:
                         if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
                           if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
                             VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
-                            DESCRIPTION=$(jq -Rs <<< "## Major update
-
-            This is the latest stable release of **[Re]Structure**.")
+                            DESCRIPTION=$(jq -Rs <<< "This is the latest stable release of **[Re]Structure**.
+                            
+                            You can download this release now from the [Re]Structure Menu or from GitHub.")
                           else
                             VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
-                            DESCRIPTION=$(jq -Rs <<< "## Minor update
-
-            Latest stable release.")
+                            DESCRIPTION=$(jq -Rs <<< "This is the latest stable release of **[Re]Structure**.
+                            
+                            You can download this release now from the [Re]Structure Menu or from GitHub.")
                           fi
                         fi
                       fi
