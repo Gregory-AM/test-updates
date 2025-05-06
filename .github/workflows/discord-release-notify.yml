@@ -115,6 +115,40 @@ jobs:
               ]
             }
 
+      - name: Send Release Candidate Notification
+        if: contains(steps.get_release_info.outputs.tag_name, 'rc')
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ secrets.DISCORD_WEBHOOK }}
+          method: POST
+          customHeaders: '{"Content-Type": "application/json"}'
+          data: |
+            {
+              "embeds": [
+                {
+                  "title": "🔍 RELEASE CANDIDATE - ${{ steps.get_release_info.outputs.release_name }}",
+                  "description": "**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
+                  "url": "${{ steps.get_release_info.outputs.release_url }}",
+                  "timestamp": "${{ steps.get_release_info.outputs.published_at }}",
+                  "color": 16760124,
+                  "footer": {
+                    "text": "Release Candidate",
+                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                  },
+                  "author": {
+                    "name": "GitHub: @Gregory-AM",
+                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                  },
+                  "fields": [
+                    {
+                      "name": "RELEASE NOTES:",
+                      "value": ${{ steps.get_release_info.outputs.clean_body }}
+                    }
+                  ]
+                }
+              ]
+            }
+
       - name: Send Major Update Notification
         if: steps.detect_type.outputs.type == 'MAJOR'
         uses: fjogeleit/http-request-action@v1.14.1
