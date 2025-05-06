@@ -1,164 +1,170 @@
-name: "Notify Discord on Release"
+name: Discord Release Notify
 
 on:
   release:
-    types: [published] # ✅ Only published events (avoids double triggers)
+    types: [published]
 
 jobs:
-  notify-discord:
+  notify:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Extract Release Info
-        id: get_release_info
+      - name: Send release notification to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
+          # Extract release info
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          RELEASE_NAME="${{ github.event.release.name }}"
+          RELEASE_BODY="${{ github.event.release.body }}"
+          RELEASE_URL="${{ github.event.release.html_url }}"
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
 
-      - name: Determine Update Type
-        id: detect_type
-        run: |
-          tag="${{ steps.get_release_info.outputs.tag_name }}"
-          is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
+          # Clean release notes (escape newlines & quotes)
+          RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
 
-          version="${tag#v}"
-          IFS='.-' read -ra PARTS <<< "$version"
-          major="${PARTS[0]}"
-          minor="${PARTS[1]}"
-          patch="${PARTS[2]}"
+          # Function to send payload
+          send_payload() {
+            curl -X POST "$DISCORD_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "$1"
+          }
 
-          type="PATCH"
+          # Detect type
+          if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
+            # Initial Release
+            JSON=$(cat <<EOF
+          {
+            "embeds": [
+            {
+              "color": 7308441,
+              "title": "INITIAL RELEASE - [Re]Structure v3.0.0",
+              "description": "This is the initial release for the [Re]Structure plugin.",
+              "footer": {
+                "text": "Released",
+                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+              },
+                "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+                "url": "$RELEASE_URL",
+                "fields": [
+                {
+                  "name": "RELEASE NOTES:",
+                  "value": $RELEASE_NOTES
+                }
+              ]
+            }
+          ]
+          }
+          EOF
+          )
+            send_payload "$JSON"
 
-          if [[ "$version" == *"rc"* ]]; then
-            type="RC"
-          elif [[ "$is_prerelease" == "true" ]]; then
-            type="PRERELEASE"
+          elif [[ "$RELEASE_TAG" == *"beta"* ]] || [[ "$IS_PRERELEASE" == "true" ]]; then
+            # Pre-release (beta)
+            JSON=$(cat <<EOF
+            {
+              "embeds": [
+            {
+              "title": "PRE-RELEASE - $RELEASE_NAME",
+              "description": "This release is for locating bugs, issues and for testing purposes which will help with further development.\n\n**- It is recommended to NOT use this version in your main workspace. **\nYou can report bugs and issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker.",
+              "url": "$RELEASE_URL",
+              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+              "color": 16760124,
+              "footer": {
+              "text": "Released",
+              "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+              },
+                "author": {
+                "name": "GitHub: @Gregory-AM",
+                "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+              },
+              "fields": [
+              {
+                "name": "RELEASE NOTES:",
+                "value": $RELEASE_NOTES
+              }
+            ]
+          }
+          ]
+          }
+          EOF
+          )
+            send_payload "$JSON"
+
+          elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
+            # Release Candidate
+            JSON=$(cat <<EOF
+            {
+              "embeds": [
+            {
+              "title": "RELEASE CANDIDATE - $RELEASE_NAME",
+              "description": "**Release candidates _can be_ used for production use. **\nThis release is for finalizing checks that the bugs and issues from the pre-release are no longer present.\n\nWhile you can use [Re]Structure release candidate within your main project, you may have to recreate the Mod Element upon updating to the stable release or if you are updating from a pre-release.\n\nIt is recommended to remove the [Re]Structure Mod Elements from your workspace before updating.\n\nYou can report any additional bugs and issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker.",
+              "url": "$RELEASE_URL",
+              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+              "color": 16760124,
+              "footer": {
+                "text": "Released",
+                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+              },
+                "author": {
+                "name": "GitHub: @Gregory-AM",
+                "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+              },
+                "fields": [
+              {
+                "name": "RELEASE NOTES:",
+                "value": $RELEASE_NOTES
+              }
+            ]
+          }
+          ]
+          }
+          EOF
+          )
+            send_payload "$JSON"
+
           else
-            if [[ "$minor" == "0" && "$patch" == "0" ]]; then
-              type="MAJOR"
-            elif [[ "$patch" == "0" ]]; then
-              type="MINOR"
+            # Stable update (major, minor, patch)
+            VERSION_TYPE="PATCH UPDATE"
+            if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
+              if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
+                VERSION_TYPE="MAJOR UPDATE"
+              else
+                VERSION_TYPE="MINOR UPDATE"
+              fi
             fi
+
+            JSON=$(cat <<EOF
+            {
+              "embeds": [
+            {
+              "title": "$VERSION_TYPE - $RELEASE_NAME",
+              "description": "## $VERSION_TYPE\n\nThis is the latest stable release of **[Re]Structure**.",
+              "url": "$RELEASE_URL",
+              "timestamp": "$(date --utc +%Y-%m-%dT%H:%M:%SZ)",
+              "color": 7929683,
+              "footer": {
+                "text": "Released",
+                "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+              },
+                "author": {
+                  "name": "GitHub: @Gregory-AM",
+                  "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                },
+                "fields": [
+                {
+                  "name": "BUG REPORTING:",
+                  "value": "If you encounter any bugs or issues within the [Re]Structure Menu or Mod Element, you can report them [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues) on the GitHub Issue tracker."
+                },
+                {
+                  "name": "RELEASE NOTES:",
+                  "value": $RELEASE_NOTES
+                }
+              ]
+            }
+          ]
+          }
+          EOF
+          )
+            send_payload "$JSON"
           fi
-
-          echo "type=$type" >> $GITHUB_OUTPUT
-
-      # PATCH
-      - name: Send PATCH Update Notification
-        if: ${{ steps.detect_type.outputs.type == 'PATCH' }}
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "content": "<@&1368448364865126491>",
-              "embeds": [
-                {
-                  "title": "NEW PATCH UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
-                  "description": "[Re]Structure has a patch update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
-                  "color": 3323461,
-                  "author": { "name": "Gregory-AM" },
-                  "footer": { "text": "PATCH" },
-                  "timestamp": "${{ github.event.release.published_at }}"
-                }
-              ],
-              "attachments": []
-            }
-
-      # MINOR
-      - name: Send MINOR Update Notification
-        if: ${{ steps.detect_type.outputs.type == 'MINOR' }}
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "content": "<@&1368448364865126491>",
-              "embeds": [
-                {
-                  "title": "NEW MINOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
-                  "description": "[Re]Structure has a minor update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
-                  "color": 3323461,
-                  "author": { "name": "Gregory-AM" },
-                  "footer": { "text": "MINOR" },
-                  "timestamp": "${{ github.event.release.published_at }}"
-                }
-              ],
-              "attachments": []
-            }
-
-      # MAJOR
-      - name: Send MAJOR Update Notification
-        if: ${{ steps.detect_type.outputs.type == 'MAJOR' }}
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "content": "<@&1368448364865126491>",
-              "embeds": [
-                {
-                  "title": "NEW MAJOR UPDATE - [Re]Structure ${{ github.event.release.tag_name }}",
-                  "description": "[Re]Structure has a major update.\n\nYou can download the update via the [Re]Structure Menu.\nAlternatively, you can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
-                  "color": 3323461,
-                  "author": { "name": "Gregory-AM" },
-                  "footer": { "text": "MAJOR" },
-                  "timestamp": "${{ github.event.release.published_at }}"
-                }
-              ],
-              "attachments": []
-            }
-
-      # RC (Release Candidate)
-      - name: Send RC Update Notification
-        if: ${{ steps.detect_type.outputs.type == 'RC' }}
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "content": "<@&1368457457659019304>",
-              "embeds": [
-                {
-                  "title": "NEW RELEASE CANDIDATE - [Re]Structure ${{ github.event.release.tag_name }}",
-                  "description": "[Re]Structure has a new release candidate.\n\nYou can download the release-candidate on [GitHub Releases](${{ github.event.release.html_url }}).",
-                  "color": 10381827,
-                  "author": { "name": "Gregory-AM" },
-                  "footer": { "text": "RELEASE CANDIDATE" },
-                  "timestamp": "${{ github.event.release.published_at }}"
-                }
-              ],
-              "attachments": []
-            }
-
-      # PRE-RELEASE (Beta/Alpha)
-      - name: Send PRE-RELEASE Notification
-        if: ${{ steps.detect_type.outputs.type == 'PRERELEASE' }}
-        uses: fjogeleit/http-request-action@v1.14.1
-        with:
-          url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          method: POST
-          customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            {
-              "content": "<@&1368457457659019304>",
-              "embeds": [
-                {
-                  "title": "NEW PRE-RELEASE - [Re]Structure ${{ github.event.release.tag_name }}",
-                  "description": "[Re]Structure has a new pre-release (e.g., beta/alpha).\n\nYou can download it on [GitHub Releases](${{ github.event.release.html_url }}).",
-                  "color": 15844367,
-                  "author": { "name": "Gregory-AM" },
-                  "footer": { "text": "PRE-RELEASE" },
-                  "timestamp": "${{ github.event.release.published_at }}"
-                }
-              ],
-              "attachments": []
-            }
