@@ -62,7 +62,7 @@ jobs:
                       elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
                         VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
                         COLOR=16760124
-                        DESCRIPTION=$(jq -Rs <<< ""This release is for locating bugs, issues and for testing purposes which will help with further development.
+                        DESCRIPTION=$(jq -Rs <<< "This release is for locating bugs, issues and for testing purposes which will help with further development.
                         
                         **- It is recommended to NOT use this version in your main workspace. **")
                         FOOTER="Pre-release"
