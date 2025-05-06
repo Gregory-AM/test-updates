@@ -60,7 +60,10 @@ jobs:
             COLOR=16760124
             DESCRIPTION="This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
             FOOTER="Pre-release"
-            BUG_FIELD=""
+            BUG_FIELD='{
+              "name": "BUG REPORTING:",
+              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            }'ss
           else
             # Stable update (Major, Minor, Patch)
             VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
