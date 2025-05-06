@@ -64,7 +64,7 @@ jobs:
             BUG_FIELD='{
               "name": "BUG REPORTING:",
               "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            },'
+            }'
 
             # Detect Major or Minor
             if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
@@ -80,40 +80,40 @@ jobs:
 
           # Build JSON payload (safe using jq)
           JSON=$(jq -n --arg title "$VERSION_TYPE" \
-                       --arg description "$DESCRIPTION" \
-                       --arg url "$RELEASE_URL" \
-                       --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
-                       --argjson color "$COLOR" \
-                       --arg footer "$FOOTER" \
-                       --arg releaseNotes "$RELEASE_NOTES" \
-                       --arg bugField "$BUG_FIELD" \
-                       '{
-                         "embeds": [
-                           {
-                             "title": $title,
-                             "description": $description,
-                             "url": $url,
-                             "timestamp": $timestamp,
-                             "color": $color,
-                             "footer": {
-                               "text": $footer,
-                               "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                             },
-                             "author": {
-                               "name": "GitHub: @Gregory-AM",
-                               "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                             },
-                             "fields": (
-                               [$bugField | select(. != "") | fromjson] + [
-                                 {
-                                   "name": "RELEASE NOTES:",
-                                   "value": $releaseNotes
-                                 }
-                               ]
-                             )
-                           }
-                         ]
-                       }')
+                      --arg description "$DESCRIPTION" \
+                      --arg url "$RELEASE_URL" \
+                      --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+                      --argjson color "$COLOR" \
+                      --arg footer "$FOOTER" \
+                      --arg releaseNotes "$RELEASE_NOTES" \
+                      --arg bugField "$BUG_FIELD" \
+                      '{
+                        "embeds": [
+                          {
+                            "title": $title,
+                            "description": $description,
+                            "url": $url,
+                            "timestamp": $timestamp,
+                            "color": $color,
+                            "footer": {
+                              "text": $footer,
+                              "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                            },
+                            "author": {
+                              "name": "GitHub: @Gregory-AM",
+                              "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                            },
+                            "fields": (
+                              [$bugField | select(. != "") | fromjson] + [
+                                {
+                                  "name": "RELEASE NOTES:",
+                                  "value": $releaseNotes
+                                }
+                              ]
+                            )
+                          }
+                        ]
+                      }')
 
           # Send the payload
           send_payload "$JSON"
