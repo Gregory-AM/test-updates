@@ -63,7 +63,7 @@ jobs:
             BUG_FIELD='{
               "name": "BUG REPORTING:",
               "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            }'ss
+            }'
           else
             # Stable update (Major, Minor, Patch)
             VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
