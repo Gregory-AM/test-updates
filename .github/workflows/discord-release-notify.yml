@@ -23,12 +23,12 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
           RELEASE_NAME: ${{ env.RELEASE_NAME }}
-          RELEASE_BODY: ${{ github.event.release.body }} # directly inject multi-line safe here
+          RELEASE_BODY: ${{ github.event.release.body }} # multi-line safe
           RELEASE_URL: ${{ env.RELEASE_URL }}
           IS_PRERELEASE: ${{ env.IS_PRERELEASE }}
         run: |
           # Clean release notes (remove carriage returns)
-          RELEASE_NOTES=$(echo "$RELEASE_BODY" | sed ':a;N;$!ba;s/\r//g')
+          RELEASE_NOTES=$(echo "$RELEASE_BODY" | sed ':a;N;$!ba;s/\r//g' | jq -Rs .)
 
           send_payload() {
             curl -X POST "$DISCORD_WEBHOOK_URL" \
@@ -40,7 +40,7 @@ jobs:
           if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
             VERSION_TYPE="INITIAL RELEASE"
             COLOR=7308441
-            DESCRIPTION="This is the initial release for the [Re]Structure plugin."
+            DESCRIPTION=$(jq -Rs <<< "This is the initial release for the [Re]Structure plugin.")
             FOOTER="Released"
             BUG_FIELD='{
               "name": "BUG REPORTING:",
@@ -49,80 +49,94 @@ jobs:
           elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
             VERSION_TYPE="RELEASE CANDIDATE - $RELEASE_NAME"
             COLOR=16760124
-            DESCRIPTION="**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release."
-            FOOTER="Release Candidate"
-            BUG_FIELD='{
-              "name": "BUG REPORTING:",
-              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            }'
-          elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
-            VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
-            COLOR=16760124
-            DESCRIPTION="This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            FOOTER="Pre-release"
-            BUG_FIELD='{
-              "name": "BUG REPORTING:",
-              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            }'
-          else
-            # Stable update (Major, Minor, Patch)
-            VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
-            COLOR=7929683
-            DESCRIPTION=""
-            FOOTER="Released"
-            BUG_FIELD='{
-              "name": "BUG REPORTING:",
-              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-            }'
+            DESCRIPTION=$(jq -Rs <<< "**Release candidates _can be_ used for production use.**
 
-            # Detect Major or Minor
-            if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
-              if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
-                VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION=""
-              else
-                VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
-                DESCRIPTION=""
-              fi
-            fi
-          fi
+            This release is for final checks before stable release.
 
-          # Build JSON payload (safe using jq)
-          JSON=$(jq -n --arg title "$VERSION_TYPE" \
-                      --arg description "$DESCRIPTION" \
-                      --arg url "$RELEASE_URL" \
-                      --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
-                      --argjson color "$COLOR" \
-                      --arg footer "$FOOTER" \
-                      --arg releaseNotes "$RELEASE_NOTES" \
-                      --arg bugField "$BUG_FIELD" \
-                      '{
-                        "embeds": [
-                          {
-                            "title": $title,
-                            "description": $description,
-                            "url": $url,
-                            "timestamp": $timestamp,
-                            "color": $color,
-                            "footer": {
-                              "text": $footer,
-                              "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                            },
-                            "author": {
-                              "name": "GitHub: @Gregory-AM",
-                              "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                            },
-                            "fields": (
-                              [$bugField | select(. != "") | fromjson] + [
-                                {
-                                  "name": "RELEASE NOTES:",
-                                  "value": $releaseNotes
-                                }
-                              ]
-                            )
-                          }
-                        ]
-                      }')
+            You can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).")
+                        FOOTER="Release Candidate"
+                        BUG_FIELD='{
+                          "name": "BUG REPORTING:",
+                          "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                        }'
+                      elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
+                        VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
+                        COLOR=16760124
+                        DESCRIPTION=$(jq -Rs <<< "This release is for testing and bug hunting.
 
-          # Send the payload
-          send_payload "$JSON"
+            **Do NOT use in main workspace!**
+
+            Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).")
+                        FOOTER="Pre-release"
+                        BUG_FIELD='{
+                          "name": "BUG REPORTING:",
+                          "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                        }'
+                      else
+                        # Stable update (Major, Minor, Patch)
+                        VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
+                        COLOR=7929683
+                        DESCRIPTION=$(jq -Rs <<< "## Patch Update
+
+            This is the latest stable release of **[Re]Structure**.")
+                        FOOTER="Released"
+                        BUG_FIELD='{
+                          "name": "BUG REPORTING:",
+                          "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                        }'
+
+                        # Detect Major or Minor
+                        if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
+                          if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
+                            VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
+                            DESCRIPTION=$(jq -Rs <<< "## Major update
+
+            This is the latest stable release of **[Re]Structure**.")
+                          else
+                            VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
+                            DESCRIPTION=$(jq -Rs <<< "## Minor update
+
+            Latest stable release.")
+                          fi
+                        fi
+                      fi
+
+                      # Build JSON payload (correct multiline handling)
+                      JSON=$(jq -n --arg title "$VERSION_TYPE" \
+                                  --arg description "$DESCRIPTION" \
+                                  --arg url "$RELEASE_URL" \
+                                  --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+                                  --argjson color "$COLOR" \
+                                  --arg footer "$FOOTER" \
+                                  --arg releaseNotes "$RELEASE_NOTES" \
+                                  --arg bugField "$BUG_FIELD" \
+                                  '{
+                                    "embeds": [
+                                      {
+                                        "title": $title,
+                                        "description": ($description | fromjson),
+                                        "url": $url,
+                                        "timestamp": $timestamp,
+                                        "color": $color,
+                                        "footer": {
+                                          "text": $footer,
+                                          "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                                        },
+                                        "author": {
+                                          "name": "GitHub: @Gregory-AM",
+                                          "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                                        },
+                                        "fields": (
+                                          [$bugField | select(. != "") | fromjson] + [
+                                            {
+                                              "name": "RELEASE NOTES:",
+                                              "value": ($releaseNotes | fromjson)
+                                            }
+                                          ]
+                                        )
+                                      }
+                                    ]
+                                  }')
+
+                      # Send the payload
+                      send_payload "$JSON"
