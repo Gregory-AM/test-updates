@@ -1,105 +1,118 @@
-name: Notify Discord on Release
+name: Release Notification
 
 on:
   release:
     types: [published]
 
 jobs:
-  notify-discord:
+  notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Extract Release Info
+      - name: Extract release info
         id: release_info
         run: |
-          echo "tag_name=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          echo "release_name=${{ github.event.release.name }}" >> $GITHUB_OUTPUT
-          echo "release_url=${{ github.event.release.html_url }}" >> $GITHUB_OUTPUT
-          echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
-          echo "published_at=${{ github.event.release.published_at }}" >> $GITHUB_OUTPUT
+          echo "RELEASE_TAG=${GITHUB_REF##*/}" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=${{ github.event.release.name }}" >> "$GITHUB_ENV"
+          echo "RELEASE_BODY=${{ github.event.release.body }}" >> "$GITHUB_ENV"
+          echo "RELEASE_URL=${{ github.event.release.html_url }}" >> "$GITHUB_ENV"
+          echo "IS_PRERELEASE=${{ github.event.release.prerelease }}" >> "$GITHUB_ENV"
 
-          # Process release body - convert to JSON string
-          BODY='${{ github.event.release.body }}'
-          CLEAN_BODY=$(echo "$BODY" | jq -Rs)
-          echo "clean_body=$CLEAN_BODY" >> $GITHUB_OUTPUT
-
-          # Determine release type
-          tag="${{ github.event.release.tag_name }}"
-          is_prerelease="${{ github.event.release.prerelease }}"
-          version="${tag#v}"
-
-          # Parse version components
-          IFS='.-' read -ra PARTS <<< "$version"
-          major="${PARTS[0]}"
-          minor="${PARTS[1]}"
-          patch="${PARTS[2]}"
-
-          TYPE="PATCH"
-
-          if [[ "$tag" == "v3.0.0" ]]; then
-            TYPE="INITIAL"
-          elif [[ "$is_prerelease" == "true" ]]; then
-            TYPE="PRERELEASE"
-          elif [[ "$tag" == *"rc"* ]]; then
-            TYPE="RC"
-          elif [[ "$minor" == "0" && "$patch" == "0" ]]; then
-            TYPE="MAJOR"
-          elif [[ "$patch" == "0" ]]; then
-            TYPE="MINOR"
-          fi
-
-          echo "release_type=$TYPE" >> $GITHUB_OUTPUT
-
-      # Send Discord notification using a specialized Discord embed builder action
-      - name: Discord notification
-        uses: Ilshidur/action-discord@master
+      - name: Send Discord Notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: >
-            {
-              "embeds": [
-                {
-                  "title": "${{ steps.release_info.outputs.release_type == 'INITIAL' && '🚀 INITIAL RELEASE - [Re]Structure v3.0.0' || 
-                                steps.release_info.outputs.release_type == 'PRERELEASE' && '🧪 PRE-RELEASE - ' || 
-                                steps.release_info.outputs.release_type == 'RC' && '🔍 RELEASE CANDIDATE - ' || 
-                                steps.release_info.outputs.release_type == 'MAJOR' && '🎉 MAJOR UPDATE - ' || 
-                                steps.release_info.outputs.release_type == 'MINOR' && '✨ MINOR UPDATE - ' || 
-                                '🔧 PATCH UPDATE - ' }}${{ steps.release_info.outputs.release_name }}",
-                  "description": "${{ steps.release_info.outputs.release_type == 'INITIAL' && 'This is the initial release for the [Re]Structure plugin.' || 
-                                      steps.release_info.outputs.release_type == 'PRERELEASE' && 'This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).' ||
-                                      steps.release_info.outputs.release_type == 'RC' && '**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).' ||
-                                      steps.release_info.outputs.release_type == 'MAJOR' && '## Major update\n\nThis is the latest stable release of **[Re]Structure**.' ||
-                                      steps.release_info.outputs.release_type == 'MINOR' && '## Minor update\n\nLatest stable release.' ||
-                                      'Patch update released.' }}",
-                  "url": "${{ steps.release_info.outputs.release_url }}",
-                  "timestamp": "${{ steps.release_info.outputs.published_at }}",
-                  "color": "${{ steps.release_info.outputs.release_type == 'INITIAL' && 7308441 || 
-                                steps.release_info.outputs.release_type == 'PRERELEASE' || steps.release_info.outputs.release_type == 'RC' && 16760124 || 
-                                steps.release_info.outputs.release_type == 'MAJOR' || steps.release_info.outputs.release_type == 'MINOR' && 7929683 || 
-                                3323461 }}",
-                  "footer": {
-                    "text": "${{ steps.release_info.outputs.release_type == 'INITIAL' && 'Released' || 
-                                steps.release_info.outputs.release_type == 'PRERELEASE' && 'Pre-release' || 
-                                steps.release_info.outputs.release_type == 'RC' && 'Release Candidate' || 
-                                steps.release_info.outputs.release_type == 'MAJOR' && 'Major' || 
-                                steps.release_info.outputs.release_type == 'MINOR' && 'Minor' || 
-                                'Patch' }}",
-                    "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
-                  },
-                  "author": {
-                    "name": "GitHub: @Gregory-AM",
-                    "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
-                  },
-                  "fields": [
-                    ${{ steps.release_info.outputs.release_type == 'MAJOR' && '{
-                      "name": "BUG REPORTING:",
-                      "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
-                    },' || '' }}
-                    {
-                      "name": "RELEASE NOTES:",
-                      "value": ${{ steps.release_info.outputs.clean_body }}
-                    }
-                  ]
-                }
-              ]
-            }
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
+          RELEASE_NAME: ${{ env.RELEASE_NAME }}
+          RELEASE_BODY: ${{ env.RELEASE_BODY }}
+          RELEASE_URL: ${{ env.RELEASE_URL }}
+          IS_PRERELEASE: ${{ env.IS_PRERELEASE }}
+        run: |
+          # Clean release notes
+          RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
+
+          send_payload() {
+            curl -X POST "$DISCORD_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "$1"
+          }
+
+          # Determine Release Type
+          if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
+            VERSION_TYPE="INITIAL RELEASE"
+            COLOR=7308441
+            DESCRIPTION="This is the initial release for the [Re]Structure plugin."
+            FOOTER="Released"
+            BUG_FIELD=""
+          elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
+            VERSION_TYPE="RELEASE CANDIDATE - $RELEASE_NAME"
+            COLOR=16760124
+            DESCRIPTION="**Release candidates _can be_ used for production use.**\nThis release is for final checks before stable release.\n\nYou can report issues [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            FOOTER="Release Candidate"
+            BUG_FIELD=""
+          elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
+            VERSION_TYPE="PRE-RELEASE - $RELEASE_NAME"
+            COLOR=16760124
+            DESCRIPTION="This release is for testing and bug hunting.\n\n**Do NOT use in main workspace!**\n\nReport bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            FOOTER="Pre-release"
+            BUG_FIELD=""
+          else
+            # Stable update (Major, Minor, Patch)
+            VERSION_TYPE="PATCH UPDATE - $RELEASE_NAME"
+            COLOR=7929683
+            DESCRIPTION="## Patch Update\n\nThis is the latest stable release of **[Re]Structure**."
+            FOOTER="Released"
+            BUG_FIELD='{
+              "name": "BUG REPORTING:",
+              "value": "Report bugs [here](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+            },'
+
+            # Detect Major or Minor
+            if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
+              if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
+                VERSION_TYPE="MAJOR UPDATE - $RELEASE_NAME"
+                DESCRIPTION="## Major update\n\nThis is the latest stable release of **[Re]Structure**."
+              else
+                VERSION_TYPE="MINOR UPDATE - $RELEASE_NAME"
+                DESCRIPTION="## Minor update\n\nLatest stable release."
+              fi
+            fi
+          fi
+
+          # Build JSON payload (safe using jq)
+          JSON=$(jq -n --arg title "$VERSION_TYPE" \
+                       --arg description "$DESCRIPTION" \
+                       --arg url "$RELEASE_URL" \
+                       --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+                       --argjson color "$COLOR" \
+                       --arg footer "$FOOTER" \
+                       --arg releaseNotes "$RELEASE_NOTES" \
+                       --arg bugField "$BUG_FIELD" \
+                       '{
+                         "embeds": [
+                           {
+                             "title": $title,
+                             "description": $description,
+                             "url": $url,
+                             "timestamp": $timestamp,
+                             "color": $color,
+                             "footer": {
+                               "text": $footer,
+                               "icon_url": "https://cdn.discordapp.com/avatars/1368444615224459274/e3ebe26579536ab912c23528f67f3281.webp?size=80"
+                             },
+                             "author": {
+                               "name": "GitHub: @Gregory-AM",
+                               "icon_url": "https://avatars.githubusercontent.com/u/83489100?v=4&size=64"
+                             },
+                             "fields": (
+                               [$bugField | select(. != "") | fromjson] + [
+                                 {
+                                   "name": "RELEASE NOTES:",
+                                   "value": $releaseNotes
+                                 }
+                               ]
+                             )
+                           }
+                         ]
+                       }')
+
+          # Send the payload
+          send_payload "$JSON"
