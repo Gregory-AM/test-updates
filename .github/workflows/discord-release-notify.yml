@@ -7,7 +7,6 @@ on:
 jobs:
   notify-discord:
     runs-on: ubuntu-latest
-
     steps:
       - name: Extract Release Info
         id: get_release_info
@@ -19,12 +18,12 @@ jobs:
           echo "published_at=${{ github.event.release.published_at }}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${{ github.event.release.prerelease }}" >> $GITHUB_OUTPUT
 
-      - name: Clean release notes (escape newlines & quotes)
+      - name: Clean release notes
         id: clean_body
         run: |
-          RAW_BODY="${{ steps.get_release_info.outputs.release_body }}"
-          # Escape double quotes and newlines
-          CLEAN_BODY=$(echo "$RAW_BODY" | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/"/\\"/g')
+          BODY='${{ steps.get_release_info.outputs.release_body }}'
+          # Escape JSON special characters and convert to JSON string
+          CLEAN_BODY=$(echo "$BODY" | jq -Rs .)
           echo "clean_body=$CLEAN_BODY" >> $GITHUB_OUTPUT
 
       - name: Determine Update Type
@@ -32,14 +31,16 @@ jobs:
         run: |
           tag="${{ steps.get_release_info.outputs.tag_name }}"
           is_prerelease="${{ steps.get_release_info.outputs.is_prerelease }}"
-
           version="${tag#v}"
+
+          # Parse version components
           IFS='.-' read -ra PARTS <<< "$version"
           major="${PARTS[0]}"
           minor="${PARTS[1]}"
           patch="${PARTS[2]}"
 
           type="PATCH"
+
           if [[ "$tag" == "v3.0.0" ]]; then
             type="INITIAL"
           elif [[ "$is_prerelease" == "true" || "$version" == *"rc"* || "$version" == *"beta"* ]]; then
@@ -54,49 +55,132 @@ jobs:
 
           echo "type=$type" >> $GITHUB_OUTPUT
 
+      - name: Create Discord Payload
+        id: create_payload
+        run: |
+          RELEASE_URL="${{ steps.get_release_info.outputs.release_url }}"
+          RELEASE_NOTES=${{ steps.clean_body.outputs.clean_body }}
+          RELEASE_NAME="${{ steps.get_release_info.outputs.release_name }}"
+          PUBLISHED_AT="${{ steps.get_release_info.outputs.published_at }}"
+          UPDATE_TYPE="${{ steps.detect_type.outputs.type }}"
+
+          if [[ "$UPDATE_TYPE" == "INITIAL" ]]; then
+            cat > payload.json << EOF
+          {
+            "embeds": [
+              {
+                "title": "🚀 INITIAL RELEASE - [Re]Structure v3.0.0",
+                "description": "This is the initial release for the [Re]Structure plugin.",
+                "color": 7308441,
+                "footer": {"text": "Released"},
+                "timestamp": "$PUBLISHED_AT",
+                "url": "$RELEASE_URL",
+                "fields": [
+                  {
+                    "name": "RELEASE NOTES:",
+                    "value": $RELEASE_NOTES
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          elif [[ "$UPDATE_TYPE" == "PRERELEASE" ]]; then
+            cat > payload.json << EOF
+          {
+            "embeds": [
+              {
+                "title": "🧪 PRE-RELEASE - $RELEASE_NAME",
+                "description": "This release is for testing and bug hunting.\\n\\n**Do NOT use in main workspace!**\\n\\n[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).",
+                "url": "$RELEASE_URL",
+                "timestamp": "$PUBLISHED_AT",
+                "color": 16760124,
+                "footer": {"text": "Pre-release"},
+                "fields": [
+                  {
+                    "name": "RELEASE NOTES:",
+                    "value": $RELEASE_NOTES
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          elif [[ "$UPDATE_TYPE" == "MAJOR" ]]; then
+            cat > payload.json << EOF
+          {
+            "embeds": [
+              {
+                "title": "🎉 MAJOR UPDATE - $RELEASE_NAME",
+                "description": "## Major update\\n\\nThis is the latest stable release of **[Re]Structure**.",
+                "url": "$RELEASE_URL",
+                "timestamp": "$PUBLISHED_AT",
+                "color": 7929683,
+                "footer": {"text": "Major"},
+                "fields": [
+                  {
+                    "name": "BUG REPORTING:",
+                    "value": "[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."
+                  },
+                  {
+                    "name": "RELEASE NOTES:",
+                    "value": $RELEASE_NOTES
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          elif [[ "$UPDATE_TYPE" == "MINOR" ]]; then
+            cat > payload.json << EOF
+          {
+            "embeds": [
+              {
+                "title": "✨ MINOR UPDATE - $RELEASE_NAME",
+                "description": "## Minor update\\n\\nLatest stable release.",
+                "url": "$RELEASE_URL",
+                "timestamp": "$PUBLISHED_AT",
+                "color": 7929683,
+                "footer": {"text": "Minor"},
+                "fields": [
+                  {
+                    "name": "RELEASE NOTES:",
+                    "value": $RELEASE_NOTES
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          else
+            cat > payload.json << EOF
+          {
+            "embeds": [
+              {
+                "title": "🔧 PATCH UPDATE - $RELEASE_NAME",
+                "description": "Patch update released.",
+                "url": "$RELEASE_URL",
+                "timestamp": "$PUBLISHED_AT",
+                "color": 3323461,
+                "footer": {"text": "Patch"},
+                "fields": [
+                  {
+                    "name": "RELEASE NOTES:",
+                    "value": $RELEASE_NOTES
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          fi
+
+          echo "payload_path=payload.json" >> $GITHUB_OUTPUT
+
       - name: Send Discord Notification
         uses: fjogeleit/http-request-action@v1.14.1
         with:
           url: ${{ secrets.DISCORD_WEBHOOK }}
           method: POST
           customHeaders: '{"Content-Type": "application/json"}'
-          data: |
-            ${{ steps.detect_type.outputs.type == 'INITIAL' && format(
-              '{"embeds":[{"title":"🚀 INITIAL RELEASE - [Re]Structure v3.0.0","description":"This is the initial release for the [Re]Structure plugin.","color":7308441,"footer":{"text":"Released"},"timestamp":"{4}","url":"{1}","fields":[{"name":"RELEASE NOTES:","value":"{2}"}]}]}',
-              steps.get_release_info.outputs.release_url,
-              steps.clean_body.outputs.clean_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
-
-            ${{ steps.detect_type.outputs.type == 'PRERELEASE' && format(
-              '{"embeds":[{"title":"🧪 PRE-RELEASE - {2}","description":"This release is for testing and bug hunting.\\n\\n**Do NOT use in main workspace!**\\n\\n[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues).","url":"{0}","timestamp":"{3}","color":16760124,"footer":{"text":"Pre-release"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
-              steps.get_release_info.outputs.release_url,
-              steps.clean_body.outputs.clean_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
-
-            ${{ steps.detect_type.outputs.type == 'MAJOR' && format(
-              '{"embeds":[{"title":"🎉 MAJOR UPDATE - {2}","description":"## Major update\\n\\nThis is the latest stable release of **[Re]Structure**.","url":"{0}","timestamp":"{3}","color":7929683,"footer":{"text":"Major"},"fields":[{"name":"BUG REPORTING:","value":"[Report bugs](https://github.com/GregoryAM-SP/ReStructure-Plugin/issues)."},{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
-              steps.get_release_info.outputs.release_url,
-              steps.clean_body.outputs.clean_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
-
-            ${{ steps.detect_type.outputs.type == 'MINOR' && format(
-              '{"embeds":[{"title":"✨ MINOR UPDATE - {2}","description":"## Minor update\\n\\nLatest stable release.","url":"{0}","timestamp":"{3}","color":7929683,"footer":{"text":"Minor"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
-              steps.get_release_info.outputs.release_url,
-              steps.clean_body.outputs.clean_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
-
-            ${{ steps.detect_type.outputs.type == 'PATCH' && format(
-              '{"embeds":[{"title":"🔧 PATCH UPDATE - {2}","description":"Patch update released.","url":"{0}","timestamp":"{3}","color":3323461,"footer":{"text":"Patch"},"fields":[{"name":"RELEASE NOTES:","value":"{1}"}]}]}',
-              steps.get_release_info.outputs.release_url,
-              steps.clean_body.outputs.clean_body,
-              steps.get_release_info.outputs.release_name,
-              steps.get_release_info.outputs.published_at
-            ) }}
+          file: ${{ steps.create_payload.outputs.payload_path }}
