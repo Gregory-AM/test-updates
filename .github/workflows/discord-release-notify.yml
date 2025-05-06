@@ -19,7 +19,7 @@ jobs:
 
       - name: Send Discord Notification
         env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
           RELEASE_NAME: ${{ env.RELEASE_NAME }}
           RELEASE_BODY: ${{ env.RELEASE_BODY }}
@@ -30,7 +30,7 @@ jobs:
           RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
 
           send_payload() {
-            curl -X POST "$DISCORD_WEBHOOK" \
+            curl -X POST "$DISCORD_WEBHOOK_URL" \
               -H "Content-Type: application/json" \
               -d "$1"
           }
