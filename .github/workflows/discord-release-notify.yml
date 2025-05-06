@@ -1,4 +1,4 @@
-name: Discord Release Notification
+name: Release Notifier
 
 on:
   release:
@@ -8,7 +8,7 @@ jobs:
   notify-discord:
     runs-on: ubuntu-latest
     steps:
-      - name: Send release info to Discord
+      - name: Extract release info
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
@@ -17,19 +17,15 @@ jobs:
           RELEASE_URL: ${{ github.event.release.html_url }}
           IS_PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          # Clean release notes (escape newlines & quotes)
           RELEASE_NOTES=$(echo "$RELEASE_BODY" | jq -R -s '.')
 
-          # Function to send payload
           send_payload() {
             curl -X POST "$DISCORD_WEBHOOK" \
               -H "Content-Type: application/json" \
               -d "$1"
           }
 
-          # Detect release type
           if [[ "$RELEASE_TAG" == "v3.0.0" ]]; then
-            # Initial Release
             JSON=$(cat <<EOF
             {
               "embeds": [
@@ -54,11 +50,10 @@ jobs:
             }
             EOF
             )
-            send_payload "$JSON"
+                        send_payload "$JSON"
 
-          elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
-            # Release Candidate
-            JSON=$(cat <<EOF
+                      elif [[ "$RELEASE_TAG" == *"rc"* ]]; then
+                        JSON=$(cat <<EOF
             {
               "embeds": [
                 {
@@ -86,11 +81,10 @@ jobs:
             }
             EOF
             )
-            send_payload "$JSON"
+                        send_payload "$JSON"
 
-          elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
-            # Beta / Pre-release
-            JSON=$(cat <<EOF
+                      elif [[ "$RELEASE_TAG" == *"beta"* || "$IS_PRERELEASE" == "true" ]]; then
+                        JSON=$(cat <<EOF
             {
               "embeds": [
                 {
@@ -118,20 +112,19 @@ jobs:
             }
             EOF
             )
-            send_payload "$JSON"
+                        send_payload "$JSON"
 
-          else
-            # Stable update (Major, Minor, Patch)
-            VERSION_TYPE="PATCH UPDATE"
-            if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
-              if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
-                VERSION_TYPE="MAJOR UPDATE"
-              else
-                VERSION_TYPE="MINOR UPDATE"
-              fi
-            fi
+                      else
+                        VERSION_TYPE="PATCH UPDATE"
+                        if [[ "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.0$ ]]; then
+                          if [[ "${BASH_REMATCH[2]}" == "0" ]]; then
+                            VERSION_TYPE="MAJOR UPDATE"
+                          else
+                            VERSION_TYPE="MINOR UPDATE"
+                          fi
+                        fi
 
-            JSON=$(cat <<EOF
+                        JSON=$(cat <<EOF
             {
               "embeds": [
                 {
@@ -163,5 +156,5 @@ jobs:
             }
             EOF
             )
-            send_payload "$JSON"
-          fi
+                        send_payload "$JSON"
+                      fi
